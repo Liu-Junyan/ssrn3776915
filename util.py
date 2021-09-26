@@ -8,6 +8,7 @@ Created on Fri Sep 24 19:55:28 2021
 import pandas as pd
 import numpy as np
 import pickle
+from timeit import default_timer as timer
 
 
 def filter_by_nrows(filename) -> None:
@@ -56,7 +57,7 @@ def realized_variance_d(grouped: pd.core.series.Series) -> float:
 
 def realized_variance_d_vec(grouped: pd.core.series.Series) -> float:
     '''
-    Vectorized variant of realized_variance_d, that is actually slower.
+    Vectorized variant of realized_variance_d, that runs faster.
     Calculate annualized daily realized variance.
 
     Parameters
@@ -71,13 +72,17 @@ def realized_variance_d_vec(grouped: pd.core.series.Series) -> float:
 
     '''
     grouped = np.log(grouped)
-    grouped_head = pd.concat([pd.Series([0]), grouped], ignore_index=True)
-    grouped_tail = pd.concat([grouped, pd.Series([0])], ignore_index=True)
-    grouped = (grouped_tail - grouped_head)[1:-1]
-    grouped = 252 * np.sum(np.square(grouped))
-    return grouped
+    grouped = grouped.diff()[1:]
+    return 252 * np.sum(np.square(grouped))
 
-'''
-for filename in os.scandir('/project/data/'):
-    filter_by_nrows(filename)
-'''
+def performance_test():
+    mat: pd.core.frame.DataFrame = pickle.load(open('./pkl/SH600000.pkl', 'rb'))
+    method = realized_variance_d
+    start = timer()
+    temp = mat.groupby(0)[[2]].agg(method)
+    temp = mat.groupby(0)[[2]].agg(method)
+    temp = mat.groupby(0)[[2]].agg(method)
+    temp = mat.groupby(0)[[2]].agg(method)
+    temp = mat.groupby(0)[[2]].agg(method)
+    end = timer()
+    print(end - start)

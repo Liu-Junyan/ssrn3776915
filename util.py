@@ -52,10 +52,11 @@ def realized_variance_d(grouped: pd.core.series.Series) -> float:
     for i in range(1, len(grouped)):
         res.append(grouped.iloc[i] - grouped.iloc[i-1])
 
-    return np.sum(np.square(res)) * 252
+    return 252 * np.sum(np.square(res))
 
-def realized_variance_d_1(grouped: pd.core.series.Series) -> float:
+def realized_variance_d_vec(grouped: pd.core.series.Series) -> float:
     '''
+    Vectorized variant of realized_variance_d, that is actually slower.
     Calculate annualized daily realized variance.
 
     Parameters

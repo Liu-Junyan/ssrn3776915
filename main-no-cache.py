@@ -1,11 +1,17 @@
 # -*- coding: utf-8 -*-
+"""
+This file is refactored from main.py. It is optimized in many ways. For example, it stores temporary results in memory instead of disk, 
+and it adopts more efficient callback functions, where the lists of coefficients are pre-calculated. For performance reference, it took
+me 7,000 seconds (about 2 hours) to run this file.
+The output is store in feature_dict.pkl: Dict[str, pd.DataFrame].
+"""
+
 import os
 from typing import Dict
 from util import *
 import pickle
 import pandas as pd
 import numpy as np
-from sys import exit
 import random
 
 
@@ -27,10 +33,6 @@ def main():
     sample = random.sample(res_dict.keys(), 100)
     sp_dict: Dict[str, pd.DataFrame] = {key: res_dict[key] for key in sample}
 
-
-    pickle.dump(sp_dict, open('sp_dict.pkl', 'wb'))
-    pickle.dump(mat_dict, open('mat_dict.pkl', 'wb'))
-
     for key in sp_dict.keys():
         res = sp_dict[key]
         res.rename(columns={2: "RV^d"}, inplace=True)
@@ -41,12 +43,24 @@ def main():
 
     (theta2_d, theta2_w, theta2_m, theta2_q) = MIDAS_grid_search_nocache(sp_dict)
     print(theta2_d, theta2_w, theta2_m, theta2_q)
+    theta2_dict = {
+        "theta2_d": theta2_d,
+        "theta2_w": theta2_w,
+        "theta2_m": theta2_m,
+        "theta2_q": theta2_q,
+    }
+
     for key in sp_dict.keys():
         res = sp_dict[key]
-        res["MIDAS^d"] = res["RV^d"].rolling(50).apply(MIDAS, args=(theta2_d,))
-        res["MIDAS^w"] = res["RV^d"].rolling(50).apply(MIDAS, args=(theta2_w,))
-        res["MIDAS^m"] = res["RV^d"].rolling(50).apply(MIDAS, args=(theta2_m,))
-        res["MIDAS^q"] = res["RV^d"].rolling(50).apply(MIDAS, args=(theta2_q,))
+        for period in Period:
+            theta2 = theta2_dict[f"theta2_{period.name}"]
+            a_list = [
+                ((1 - i / 50) ** (theta2 - 1)) * gamma(1 + theta2) / gamma(theta2)
+                for i in range(1, 51)
+            ]
+            res[f"MIDAS^{period.name}"] = (
+                res["RV^d"].rolling(50).apply(MIDAS_al, args=(a_list,))
+            )
 
         mat = mat_dict[key]
         df = mat.groupby(0)[2].agg(realized_semivariance_d_vec)
@@ -117,7 +131,7 @@ def main():
 
         sp_dict[key] = res
 
-    pickle.dump(sp_dict, open('sp_dict', 'wb'))
+    pickle.dump(sp_dict, open("feature_dict.pkl", "wb"))
 
 
 if __name__ == "__main__":

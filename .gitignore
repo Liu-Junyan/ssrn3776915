@@ -4,3 +4,4 @@ sp/
 __pycache__/
 *.zip
 *.csv
+*.pkl

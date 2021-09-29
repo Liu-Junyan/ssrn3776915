@@ -2,7 +2,7 @@
 """
 This file is refactored from main.py. It is optimized in many ways. For example, it stores temporary results in memory instead of disk, 
 and apply more efficient callback functions, where the lists of coefficients are pre-calculated. For performance reference, it took
-me about 7,000 seconds (about 2 hours) to run this file.
+me about 7,000 seconds (around 2 hours) to run this file.
 The output is store in feature_dict.pkl: Dict[str, pd.DataFrame].
 """
 

@@ -6,8 +6,6 @@ from sklearn import linear_model
 from constant import Period, FEATURE_SET, RESPONSE_SET
 from estimate_util import *
 
-pd.options.mode.chained_assignment = None
-
 def main():
     fp: pd.DataFrame = pd.read_pickle("./feature_panel.pkl")
     fp["Year"] = (fp["Date"] / 10000).astype(int)
@@ -16,7 +14,9 @@ def main():
     lm = linear_model.LinearRegression()
     for period in Period:
         response = f'RV_res^{period.name}'
-        estimated_dict[period.name].insert(len(estimated_dict[period.name].columns), f'RV_HAR^{period.name}', np.nan)
+        predicted = f'RV_HAR^{period.name}'
+        estimated = estimated_dict[period.name]
+        estimated.insert(len(estimated.columns), predicted, np.nan)
         
         for t in range(2008, 2017):
             training_panel = fp[fp['Year'] < t]
@@ -24,7 +24,10 @@ def main():
             training_p_valid = validate_panel(training_panel, response)
             lm.fit(training_p_valid[FEATURE_SET], training_p_valid[response])
             testing_p_valid = validate_panel(testing_panel, response)
-            estimated_dict[period.name]
+            
+
+
+
 
     for t in range(2008, 2017):
         training_panel = fp[fp['Year'] < t]

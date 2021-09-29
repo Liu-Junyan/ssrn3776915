@@ -15,7 +15,6 @@ import os
 from scipy.special import gamma
 from sklearn.linear_model import LinearRegression
 from constant import Period
-from sys import exit
 
 
 def filter_by_nrows(filename: os.DirEntry) -> None:
@@ -23,7 +22,7 @@ def filter_by_nrows(filename: os.DirEntry) -> None:
 
     Args:
         filename (os.DirEntry): filename
-    """    
+    """
     mat = pd.read_csv(filename, header=None)
     if mat.shape[0] > 100000:
         curr_name = "./pkl/" + filename.name[:-4] + ".pkl"
@@ -33,7 +32,7 @@ def filter_by_nrows(filename: os.DirEntry) -> None:
 def filter_by_ndates() -> None:
     """Use the number of dates as a benchmark to filter stocks, and delete invalid pickles. 
     Valid stocks have a record starting at 2005.1.4, ending at 2016.12.30, and have more than 2800 entries.
-    """    
+    """
     for filename in os.scandir("./res/"):
         res: pd.core.frame.DataFrame = pickle.load(open(filename, "rb"))
         if not (
@@ -43,22 +42,22 @@ def filter_by_ndates() -> None:
             print(f"{filename.name} deleted.")
 
 
-def realized_variance_d(grouped: pd.Series) -> float:
-    """Calculate annualized daily realized variance.
+# def realized_variance_d(grouped: pd.Series) -> float:
+#     """Calculate annualized daily realized variance.
 
-    Args:
-        grouped (pd.Series): Intraday stock price series in one day.
+#     Args:
+#         grouped (pd.Series): Intraday stock price series in one day.
 
-    Returns:
-        float: Annualized daily realized variance.
-    """    
-    res = []
-    grouped = np.log(grouped)
+#     Returns:
+#         float: Annualized daily realized variance.
+#     """
+#     res = []
+#     grouped = np.log(grouped)
 
-    for i in range(1, len(grouped)):
-        res.append(grouped.iloc[i] - grouped.iloc[i - 1])
+#     for i in range(1, len(grouped)):
+#         res.append(grouped.iloc[i] - grouped.iloc[i - 1])
 
-    return 252 * np.sum(np.square(res))
+#     return 252 * np.sum(np.square(res))
 
 
 def realized_variance_d_vec(s: pd.Series) -> float:
@@ -70,8 +69,7 @@ def realized_variance_d_vec(s: pd.Series) -> float:
 
     Returns:
         float: Annualized daily realized variance.
-    """    
-    s = np.log(s)
+    """
     s = s.diff()[1:]
     return 252 * np.sum(np.square(s))
 
@@ -85,7 +83,6 @@ def realized_semivariance_d_vec(s: pd.Series) -> Tuple[float, float]:
     Returns:
         Tuple[float, float]: (RVP^d, RVN^d). Annualized daily realized semivariances.
     """
-    s = np.log(s)
     s = s.diff()[1:]
     s_positive: pd.Series = s.apply(max, args=(0,))
     s_negative: pd.Series = s - s_positive
@@ -100,8 +97,7 @@ def realized_quarticity_d(s: pd.Series) -> float:
 
     Returns:
         float: Annualized daily realized quarticity.
-    """    
-    s = np.log(s)
+    """
     s = s.diff()[1:]
     n = s.size
     return (252 ** 2) * n / 3 * np.sum(np.power(s, 4))
@@ -116,7 +112,7 @@ def rolling_mean(s: pd.Series, N: int) -> pd.Series:
 
     Returns:
         pd.Series: Calculated rolling mean.
-    """    
+    """
     return s.rolling(N).mean()
 
 
@@ -129,7 +125,7 @@ def MIDAS(s: pd.Series, theta2: int = 1) -> float:
 
     Returns:
         float: MIDAS.
-    """    
+    """
     a_list = []
     for index in range(50):
         i = index + 1
@@ -148,7 +144,7 @@ def MIDAS_al(s: pd.Series, a_list: List[float]) -> float:
 
     Returns:
         float: MIDAS.
-    """    
+    """
     MIDAS = np.dot(s, a_list[::-1]) / np.sum(a_list)
     return MIDAS
 
@@ -213,7 +209,8 @@ def MIDAS_grid_search_nocache(
         columns=[period.name for period in Period],
         dtype=float,
     )
-    for theta2 in range(1, 100):
+    for theta2 in range(1, 41):
+        # print(f"Processing theta2 = {theta2}")
         RSS_dict = {period.name: 0 for period in Period}
         TSS_dict = {period.name: 0 for period in Period}
         a_list = [
@@ -260,7 +257,7 @@ def Exp_realized_variance(s: pd.Series, CoM: int) -> float:
 
     Returns:
         float: Exponential realized variance.
-    """    
+    """
     lmbda = np.log(1 + 1 / CoM)
     exp_list = [np.exp(-i * lmbda) for i in range(1, 501)]
     return np.dot(s, exp_list[::-1]) / np.sum(exp_list)
@@ -278,15 +275,3 @@ def Exp_realized_variance_expl(s: pd.Series, exp_list: List[float]) -> float:
     """
     return np.dot(s, exp_list[::-1]) / np.sum(exp_list)
 
-
-# def performance_test():
-#     mat: pd.core.frame.DataFrame = pickle.load(open('./pkl/SH600000.pkl', 'rb'))
-#     method = realized_variance_d
-#     start = timer()
-#     temp = mat.groupby(0)[[2]].agg(method)
-#     temp = mat.groupby(0)[[2]].agg(method)
-#     temp = mat.groupby(0)[[2]].agg(method)
-#     temp = mat.groupby(0)[[2]].agg(method)
-#     temp = mat.groupby(0)[[2]].agg(method)
-#     end = timer()
-#     print(end - start)

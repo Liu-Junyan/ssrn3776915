@@ -13,3 +13,27 @@ class Period(Enum):
     w = 5
     m = 21
     q = 63
+
+FEATURE_SET = [
+    "RV^d",
+    "RV^w",
+    "RV^m",
+    "RV^q",
+    "MIDAS^d",
+    "MIDAS^w",
+    "MIDAS^m",
+    "MIDAS^q",
+    "RVP^d",
+    "RVN^d",
+    "HARQ^d",
+    "HARQ^w",
+    "HARQ^m",
+    "HARQ^q",
+    "ExpRV^1",
+    "ExpRV^5",
+    "ExpRV^25",
+    "ExpRV^125",
+    "ExpGlRV",
+]
+
+RESPONSE_SET = ['RV_res^d', 'RV_res^w', 'RV_res^m', 'RV_res^q']

@@ -1,6 +1,4 @@
-res/
 pkl/
-sp/
 __pycache__/
 *.zip
 *.csv

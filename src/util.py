@@ -10,7 +10,6 @@ from typing import Dict, List, Tuple
 import pandas as pd
 import numpy as np
 import pickle
-from timeit import default_timer as timer
 import os
 from scipy.special import gamma
 from sklearn.linear_model import LinearRegression
@@ -65,7 +64,7 @@ def realized_variance_d_vec(s: pd.Series) -> float:
     Calculate annualized daily realized variance.
 
     Args:
-        s (pd.Series): Intraday stock price series in one day.
+        s (pd.Series): Intraday stock log price series in one day.
 
     Returns:
         float: Annualized daily realized variance.
@@ -78,7 +77,7 @@ def realized_semivariance_d_vec(s: pd.Series) -> Tuple[float, float]:
     """Calculate annualized daily realized semivariances.
 
     Args:
-        s (pd.Series): Intraday stock price series in one day.
+        s (pd.Series): Intraday stock log price series in one day.
 
     Returns:
         Tuple[float, float]: (RVP^d, RVN^d). Annualized daily realized semivariances.
@@ -93,7 +92,7 @@ def realized_quarticity_d(s: pd.Series) -> float:
     """Calculate annualized daily realized quarticity.
 
     Args:
-        s (pd.Series): Intraday stock price series in one day.
+        s (pd.Series): Intraday stock log price series in one day.
 
     Returns:
         float: Annualized daily realized quarticity.
@@ -198,7 +197,7 @@ def MIDAS_grid_search() -> Tuple[int, int, int, int]:
 def MIDAS_grid_search_nocache(
     sp_dict: Dict[str, pd.DataFrame]
 ) -> Tuple[int, int, int, int]:
-    """Brute-force search the optimal theta2s for MIDAS algorithm. Use with main-nocache.py.
+    """Brute-force search the optimal theta2s for MIDAS algorithm. Use with main_nocache.py.
 
     Returns:
         Tuple[int, int, int, int]: A tuple of optimal theta2s for MIDAS_d, MIDAS_w, MIDAS_m, and MIDAS_q that maximize R^2s.
@@ -274,4 +273,3 @@ def Exp_realized_variance_expl(s: pd.Series, exp_list: List[float]) -> float:
         float: Exponential realized variance.
     """
     return np.dot(s, exp_list[::-1]) / np.sum(exp_list)
-

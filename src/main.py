@@ -5,7 +5,7 @@ Created on Sat Sep 25 11:42:02 2021
 @author: John
 
 This file represents the implementation process of deriving features. Compared to main-nocache, it may be more intuitive but is suboptimal and involves
-a lot of disk I/Os to store temporary results. It's not advisable to run this file. Instead, you should run main-nocache.py.
+a lot of disk I/Os to store temporary results. It's not advisable to run this file. Instead, you should run main_nocache.py.
 """
 
 import os
@@ -19,7 +19,7 @@ import random
 def main():
     for filename in os.scandir("./data/"):
         filter_by_nrows(filename)
-    for filename in os.scandir("./pkl/"):
+    for filename in os.scandir("../pkl/"):
         mat: pd.DataFrame = pickle.load(open(filename, "rb"))
         res: pd.DataFrame = mat.groupby(0)[[2]].agg(realized_variance_d_vec)
         res.to_pickle("./res/" + filename.name)
@@ -130,4 +130,3 @@ def main():
 if __name__ == "__main__":
     main()
     pass
-

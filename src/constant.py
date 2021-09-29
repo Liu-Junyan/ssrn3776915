@@ -8,11 +8,13 @@ Created on Mon Sep 27 16:07:11 2021
 
 from enum import Enum
 
+
 class Period(Enum):
     d = 1
     w = 5
     m = 21
     q = 63
+
 
 FEATURE_SET = [
     "RV^d",
@@ -36,4 +38,4 @@ FEATURE_SET = [
     "ExpGlRV",
 ]
 
-RESPONSE_SET = ['RV_res^d', 'RV_res^w', 'RV_res^m', 'RV_res^q']
+RESPONSE_SET = ["RV_res^d", "RV_res^w", "RV_res^m", "RV_res^q"]

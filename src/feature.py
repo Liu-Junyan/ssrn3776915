@@ -6,7 +6,7 @@ me about 7,000 seconds (around 2 hours) to run this file.
 The output is store in feature_dict.pkl: Dict[str, pd.DataFrame].
 """
 
-from util import *
+from feature_util import *
 import pandas as pd
 import numpy as np
 import random
@@ -36,6 +36,7 @@ def main():
             .agg(realized_variance_d_vec)
             .rename(columns={"lnPrice": "RV^d"})
         )
+
         res["Open"] = mat.groupby("Date")["lnPrice"].head(1).to_list()
         res["Close"] = mat.groupby("Date")["lnPrice"].tail(1).to_list()
         res["RV^d"] = res["RV^d"] + np.square(
@@ -54,7 +55,7 @@ def main():
                 res[f"RV^{period.name}"] = res["RV^d"].rolling(period.value).mean()
         sp_dict[key] = res
 
-    (theta2_d, theta2_w, theta2_m, theta2_q) = MIDAS_grid_search_nocache(sp_dict)
+    (theta2_d, theta2_w, theta2_m, theta2_q) = MIDAS_grid_search(sp_dict)
     print(theta2_d, theta2_w, theta2_m, theta2_q)
     theta2_dict = {
         "theta2_d": theta2_d,

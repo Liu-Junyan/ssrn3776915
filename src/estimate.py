@@ -12,7 +12,7 @@ def estimate_HAR(fp: pd.DataFrame, estimated_dict: Dict[str, pd.DataFrame]):
     """Estimate by HAR.
 
     Args:
-        fp (pd.DataFrame): A large panel of features and dependent variables.
+        fp (pd.DataFrame): A large panel of features and response variables.
         estimated_dict (Dict[str, pd.DataFrame]): A dict of estimated results. MUTATED.
     """
     lm = linear_model.LinearRegression()

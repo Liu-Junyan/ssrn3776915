@@ -6,29 +6,47 @@ me about 7,000 seconds (around 2 hours) to run this file.
 The output is store in feature_dict.pkl: Dict[str, pd.DataFrame].
 """
 
+import os
 from feature_util import *
 import pandas as pd
 import numpy as np
 import random
 from functools import reduce
-from constant import FEATURE_SET
+from constants import FEATURE_SET
 
 
 def main():
-    mat_dict: Dict[str, pd.DataFrame] = {
-        f.name[:-4]: pd.read_pickle(f)[[0, 2]].set_axis(["Date", "Price"], axis=1)
-        for f in os.scandir("../pkl/")
-    }
+    # mat_dict: Dict[str, pd.DataFrame] = {
+    #     f.name[:-4]: pd.read_pickle(f)[["date", "close"]].set_axis(
+    #         ["Date", "Price"], axis=1
+    #     )
+    #     for f in os.scandir("../pkl/")
+    # }
+    mat_dict: Dict[str, pd.DataFrame] = {}
+    for f in os.scandir("../pkl/"):
+        df: pd.DataFrame = pd.read_pickle(f)[["date", "close"]].set_axis(
+            ["Date", "Price"], axis=1
+        )
+        df["Date"] = df["Date"].apply(date_s_to_int)
+        df["Price"] = df["Price"].astype(float)
+        mat_dict[f.name[:-4]] = df  # f.name example: "SH600000.pkl"
+
     for key in list(mat_dict.keys()):
         mat = mat_dict[key]
+        mat = mat[mat["Price"] > 0]
         if not (
-            mat["Date"].iloc[0] == 20050104
-            and mat["Date"].iloc[-1] == 20161230
-            and mat["Date"].unique().size > 2800
+            mat["Date"].iloc[0] == 20000104
+            and mat["Date"].iloc[-1] == 20210929
+            and mat["Date"].unique().size > 5000
         ):
             mat_dict.pop(key)
-    res_dict: Dict[str, pd.DataFrame] = {}
-    for key in mat_dict.keys():
+        else:
+            mat_dict[key] = mat
+
+    sp_dict: Dict[str, pd.DataFrame] = {}
+    random.seed(20210928)
+    sample_keys = random.sample(mat_dict.keys(), 100)
+    for key in sample_keys:
         mat = mat_dict[key]
         mat["lnPrice"] = np.log(mat["Price"])
         res = (
@@ -42,11 +60,8 @@ def main():
         res["RV^d"] = res["RV^d"] + np.square(
             res["Open"].shift(-1) - res["Close"]
         ).fillna(0)
-        res.drop(columns=["Open", "Close"])
-        res_dict[key] = res
-
-    sample = random.sample(res_dict.keys(), 100)
-    sp_dict: Dict[str, pd.DataFrame] = {key: res_dict[key] for key in sample}
+        res.drop(columns=["Open", "Close"], inplace=True)
+        sp_dict[key] = res
 
     for key in sp_dict.keys():
         res = sp_dict[key]
@@ -55,19 +70,12 @@ def main():
                 res[f"RV^{period.name}"] = res["RV^d"].rolling(period.value).mean()
         sp_dict[key] = res
 
-    (theta2_d, theta2_w, theta2_m, theta2_q) = MIDAS_grid_search(sp_dict)
-    print(theta2_d, theta2_w, theta2_m, theta2_q)
-    theta2_dict = {
-        "theta2_d": theta2_d,
-        "theta2_w": theta2_w,
-        "theta2_m": theta2_m,
-        "theta2_q": theta2_q,
-    }
+    theta2_dict = MIDAS_grid_search(sp_dict)
 
     for key in sp_dict.keys():
         res = sp_dict[key]
         for period in Period:
-            theta2 = theta2_dict[f"theta2_{period.name}"]
+            theta2 = theta2_dict[key][f"{period.name}"]
             a_list = [
                 ((1 - i / 50) ** (theta2 - 1)) * gamma(1 + theta2) / gamma(theta2)
                 for i in range(1, 51)
@@ -78,8 +86,7 @@ def main():
 
         mat = mat_dict[key]
         df = mat.groupby("Date")["lnPrice"].agg(realized_semivariance_d_vec)
-        df = df.apply(pd.Series)
-        res[["RVP^d", "RVN^d"]] = df
+        res[["RVP^d", "RVN^d"]] = df.apply(pd.Series)
 
         sp_dict[key] = res
 
@@ -131,7 +138,7 @@ def main():
         RV_sub = RV_all.loc[res.index]
         LM_sub = LM_all.loc[res.index]
         res["GlRV"] = (
-            1 / RV_all.shape[1] * np.sum(RV_sub / LM_sub, axis=1) * LM_sub[key]
+            1 / RV_sub.shape[1] * np.sum(RV_sub / LM_sub, axis=1) * LM_sub[key]
         )
 
         CoM = 5
@@ -143,7 +150,7 @@ def main():
         sp_dict[key] = res
 
     feature_dict = sp_dict
-    feature_list = []
+    feature_panel = pd.DataFrame()
     for key in feature_dict.keys():
         feature = feature_dict[key]
         for period in Period:
@@ -152,12 +159,11 @@ def main():
             )
         feature["Stock"] = key
         feature["Date"] = feature.index.values
-        feature_list.append(feature)
-    feature_panel = pd.concat(feature_list, ignore_index=True)
+        feature_panel = pd.concat([feature_panel, feature], ignore_index=True)
     feature_panel.dropna(subset=FEATURE_SET, inplace=True)
-    feature_panel.drop(columns=["GlRV", "Open", "Close"], inplace=True)
+    feature_panel.drop(columns=["GlRV"], inplace=True)
     feature_panel.reset_index(drop=True, inplace=True)
-    feature_panel.to_pickle("feature_panel.pkl")
+    feature_panel.to_pickle("../feature_panel.pkl")
 
 
 if __name__ == "__main__":

@@ -5,16 +5,34 @@ Created on Fri Sep 24 19:55:28 2021
 @author: John
 """
 
-import os
 import pickle
 from typing import Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
+from pandas.core.reshape.concat import concat
 from scipy.special import gamma
 from sklearn.linear_model import LinearRegression
 
-from constant import Period
+from constants import Period
+
+
+def date_s_to_int(date_s: str) -> int:
+    """Convert string date to integer.
+
+    Args:
+        date_s (str): String date of format YYYY-MM-DD.
+
+    Returns:
+        int: Integer date.
+    """
+    multipier = 10000000
+    date_int = 0
+    for c in date_s:
+        if c != "-":
+            date_int += int(c) * multipier
+            multipier //= 10
+    return date_int
 
 
 def realized_variance_d(s: pd.Series) -> float:
@@ -108,56 +126,56 @@ def MIDAS_al(s: pd.Series, a_list: List[float]) -> float:
     return MIDAS
 
 
-def MIDAS_grid_search(
-    sp_dict: Dict[str, pd.DataFrame]
-) -> Tuple[int, int, int, int]:
+def MIDAS_grid_search(sp_dict: Dict[str, pd.DataFrame]) -> Dict[str, Dict[str, int]]:
     """Brute-force search the optimal theta2s for MIDAS algorithm. Use with feature.py.
 
     Returns:
         Tuple[int, int, int, int]: A tuple of optimal theta2s for MIDAS_d, MIDAS_w, MIDAS_m, and MIDAS_q that maximize R^2s.
     """
-    lm: LinearRegression = LinearRegression()
-    theta2_profile: pd.DataFrame = pd.DataFrame(
-        index=list(range(1, 100)),
-        columns=[period.name for period in Period],
-        dtype=float,
-    )
+    lm = LinearRegression()
+    theta2_dict: Dict[str, Dict[str, Dict]] = {
+        key: pd.Series(index=[period.name for period in Period], dtype=int)
+        for key in sp_dict.keys()
+    }
+    theta2_R2_profile: Dict[str, pd.DataFrame] = {
+        key: pd.DataFrame(
+            index=list(range(1, 41)),
+            columns=[period.name for period in Period],
+            dtype=float,
+        )
+        for key in sp_dict.keys()
+    }
+
     for theta2 in range(1, 41):
-        # print(f"Processing theta2 = {theta2}")
-        RSS_dict = {period.name: 0 for period in Period}
-        TSS_dict = {period.name: 0 for period in Period}
+        print(f"Processing theta2 = {theta2}")
         a_list = [
             ((1 - i / 50) ** (theta2 - 1)) * gamma(1 + theta2) / gamma(theta2)
             for i in range(1, 51)
         ]
+
         for key in sp_dict.keys():
             res: pd.DataFrame = sp_dict[key]
             MIDAS_series: pd.Series = res["RV^d"].rolling(50).apply(
                 MIDAS_al, args=(a_list,)
             )
-            for period in Period:  # Search for all periods at once
-                df: pd.DataFrame = pd.DataFrame(
-                    {
-                        "RV": res[f"RV^{period.name}"],
-                        "MIDAS": MIDAS_series.shift(period.value),
-                    }
-                )
+            for period in Period:
+                df = pd.DataFrame()
+                df["RV"] = res[f"RV^{period.name}"]
+                df["MIDAS"] = MIDAS_series.shift(period.value)
                 df.dropna(inplace=True)
                 lm.fit(df[["MIDAS"]], df["RV"])
                 df["predicted"] = lm.predict(df[["MIDAS"]])
-                RSS_dict[period.name] += np.sum(np.square(df["RV"] - df["predicted"]))
-                TSS_dict[period.name] += np.sum(np.square(df["RV"] - np.mean(df["RV"])))
-        for period in Period:
-            theta2_profile.loc[theta2, period.name] = (
-                1 - RSS_dict[period.name] / TSS_dict[period.name]
-            )
-        pass
-    return (
-        theta2_profile["d"].idxmax(),
-        theta2_profile["w"].idxmax(),
-        theta2_profile["m"].idxmax(),
-        theta2_profile["q"].idxmax(),
-    )
+                RSS = np.sum(np.square(df["RV"] - df["predicted"]))
+                TSS = np.sum(np.square(df["RV"] - np.mean(df["RV"])))
+                theta2_R2_profile[key].loc[theta2, period.name] = 1 - RSS / TSS
+
+    for key in sp_dict.keys():
+        theta2_dict[key] = {
+            period.name: theta2_R2_profile[key][period.name].idxmax()
+            for period in Period
+        }
+
+    return theta2_dict
 
 
 def Exp_realized_variance(s: pd.Series, CoM: int) -> float:

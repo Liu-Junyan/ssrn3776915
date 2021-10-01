@@ -34,13 +34,16 @@ def standardize(panel: pd.DataFrame, mean: float, std: float) -> pd.DataFrame:
 
 
 def expand_estimated_dict(estimated_dict: Dict[str, pd.DataFrame], predicted: str):
+    """Expand the estimated dict by adding new predicted variable to each estimated panel.
 
+    Args:
+        estimated_dict (Dict[str, pd.DataFrame]): A dictionary of predicted results.
+        predicted (str): The name of predicted variable.
+    """
     for period in Period:
         estimated = estimated_dict[period.name]
         try:
-            estimated.insert(
-                len(estimated.columns), f"{predicted}^{period.name}", np.nan
-            )
+            estimated.insert(len(estimated.columns), predicted, np.nan)
         except ValueError:  # Already exists
             return
 
@@ -49,20 +52,43 @@ def lasso_grid_search(
     training_panel: pd.DataFrame,
     validation_panel: pd.DataFrame,
     estimated: pd.DataFrame,
-    period: str,
+    period: Period,
 ) -> np.float64:
+    """Use grid search to find optimal lambda for LASSO.
+
+    Args:
+        training_panel (pd.DataFrame): Validated training panel.
+        validation_panel (pd.DataFrame): Validated validation panel.
+        estimated (pd.DataFrame): Estimated panel.
+        period (Period): Forecast horizon.
+
+    Returns:
+        np.float64: Optimal lambda.
+    """
     lasso = linear_model.Lasso()
-    param_space = np.logspace(-5, 2, 200)
-    lmbda_profile = pd.Series(index=param_space, dtype=float)
+    log_space = np.logspace(-5, 2, 200)
+    log_space = np.insert(log_space, 0, 0)
+    param_space = log_space[log_space < 1]
+    lmbda_R2_profile = pd.Series(index=param_space, dtype=float)
     for param in param_space:
         lasso.alpha = param
-        lasso.fit(training_panel[FEATURE_SET], training_panel[f"RV_res^{period}"])
-        predicted: np.ndarray = lasso.predict(validation_panel[FEATURE_SET])
-        lmbda_profile.loc[param] = R_squared_OOS(
-            estimated[f"RV_res^{period}"], estimated[f"RV_HAR^{period}"], predicted
+        lasso.fit(training_panel[FEATURE_SET], training_panel[f"RV_res^{period.name}"])
+        predicted_array: np.ndarray = lasso.predict(validation_panel[FEATURE_SET])
+        lmbda_R2_profile.loc[param] = R_squared_OOS(
+            estimated["RV_res"], estimated["RV_HAR"], predicted_array
         )
-    return lmbda_profile.idxmax()
+    return lmbda_R2_profile.idxmax()
 
 
 def R_squared_OOS(res, benchmark, predicted) -> float:
+    """Calculate Out-of-sample R squared.
+
+    Args:
+        res (Array-like object): Response variables.
+        benchmark (Array-like object): Benchmark variables.
+        predicted (Array-like object): Predicted variables.
+
+    Returns:
+        float: Out-of-sample R squared.
+    """
     return 1 - np.sum(np.square(res - predicted)) / np.sum(np.square(res - benchmark))

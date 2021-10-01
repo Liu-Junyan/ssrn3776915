@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-This file is refactored from main.py. It is optimized in many ways. For example, it stores temporary results in memory instead of disk, 
-and apply more efficient callback functions, where the lists of coefficients are pre-calculated. For performance reference, it took
-me about 7,000 seconds (around 2 hours) to run this file.
-The output is store in feature_dict.pkl: Dict[str, pd.DataFrame].
+Usage: cd src && python3 feature.py
+Obtain a panel of all the response variables and explanatory variables (a.k.a. features in machine learning) for following research.
+The result is stored in feature_panel.pkl.
 """
 
 import os
@@ -16,12 +15,6 @@ from constants import FEATURE_SET
 
 
 def main():
-    # mat_dict: Dict[str, pd.DataFrame] = {
-    #     f.name[:-4]: pd.read_pickle(f)[["date", "close"]].set_axis(
-    #         ["Date", "Price"], axis=1
-    #     )
-    #     for f in os.scandir("../pkl/")
-    # }
     mat_dict: Dict[str, pd.DataFrame] = {}
     for f in os.scandir("../pkl/"):
         df: pd.DataFrame = pd.read_pickle(f)[["date", "close"]].set_axis(

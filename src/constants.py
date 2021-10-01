@@ -7,6 +7,7 @@ Created on Mon Sep 27 16:07:11 2021
 """
 
 from enum import Enum
+from typing import List
 
 
 class Period(Enum):
@@ -16,7 +17,7 @@ class Period(Enum):
     q = 63
 
 
-FEATURE_SET = [
+FEATURE_SET: List[str] = [
     "RV^d",
     "RV^w",
     "RV^m",
@@ -38,4 +39,8 @@ FEATURE_SET = [
     "ExpGlRV",
 ]
 
-RESPONSE_SET = ["RV_res^d", "RV_res^w", "RV_res^m", "RV_res^q"]
+T_START: int = 2004
+"""The starting year of testing set (or validation set for ML methods) (inclusive)."""
+
+T_END: int = 2022
+"""The ending year of testing set (noninclusive)."""

@@ -4,6 +4,7 @@ Usage: cd src && python3 estimate.py
 from typing import Dict, List
 import numpy as np
 import pandas as pd
+from pandas.core.indexes import period
 from sklearn import linear_model
 from constants import Period, FEATURE_SET_ALL, T_START, T_END
 from estimate_util import *
@@ -79,7 +80,8 @@ def estimate_LASSO(
         columns=[period.name for period in Period],
         dtype=float,
     )
-    lmbda_table_stash = pickle.load(open("../lmbda_table_stash.pkl", "rb"))
+    if use_stash:
+        lmbda_table_stash = pickle.load(open("../lmbda_table_stash.pkl", "rb"))
     # Under training-validation-testing scheme, t = 2008...2015. (testing: 2007...t-1; validation: t; testing: t+1)
     # t for validation set
     for t in range(T_START, T_END - 1):
@@ -115,7 +117,7 @@ def estimate_LASSO(
                 else (lmbda_table_stash.loc[t, period.name])
             )
             lmbda_table.loc[t, period.name] = lmbda
-            print(f"Lambda for year {t} series {period.name} is {lmbda}")
+            print(f"LASSO: lambda for year {t} series {period.name} is {lmbda}")
             estimated = estimated_dict[period.name]
             if lmbda != 0:
                 lasso.alpha = lmbda
@@ -129,6 +131,58 @@ def estimate_LASSO(
                     testing_p_v[FEATURE_SET_ALL]
                 )
     lmbda_table.to_pickle("../lmbda_table_stash.pkl")
+
+
+def estimate_PCR(fp: pd.DataFrame, estimated_dict: Dict[str, pd.DataFrame]):
+    pca = decomposition.PCA()
+    lm = linear_model.LinearRegression()
+    predicted = "RV_PCR"
+    expand_estimated_dict(estimated_dict, predicted)
+    pca_n_table = pd.DataFrame(
+        index=range(T_START, T_END - 1),
+        columns=[period.name for period in Period],
+        dtype=int,
+    )
+    for t in range(T_START, T_END - 1):
+        training_panel = fp[fp["Year"] < t].copy()
+        validation_panel = fp[fp["Year"] == t].copy()
+        testing_panel = fp[fp["Year"] == t + 1].copy()
+
+        training_mean = training_panel[FEATURE_SET_ALL].mean()
+        training_std = training_panel[FEATURE_SET_ALL].std()
+
+        training_panel[FEATURE_SET_ALL] = standardize(
+            training_panel[FEATURE_SET_ALL], training_mean, training_std
+        )
+        validation_panel[FEATURE_SET_ALL] = standardize(
+            validation_panel[FEATURE_SET_ALL], training_mean, training_std
+        )
+        testing_panel[FEATURE_SET_ALL] = standardize(
+            testing_panel[FEATURE_SET_ALL], training_mean, training_std
+        )
+
+        for period in Period:
+            response = f"RV_res^{period.name}"
+            training_p_v = validate_panel(training_panel, response)
+            validation_p_v = validate_panel(validation_panel, response)
+            testing_p_v = validate_panel(testing_panel, response)
+
+            estimated_copy = estimated_dict[period.name].copy()
+            estimated_copy = estimated_copy[estimated_copy["Year"] == t]
+
+            pca_n = pca_grid_search(
+                training_p_v, validation_p_v, estimated_copy, period
+            )
+            pca_n_table.loc[t, period.name] = pca_n
+            print(f"PCR: n for year {t} series {period.name} is {pca_n}")
+            estimated = estimated_dict[period.name]
+            pca.n_components = pca_n
+            pca.fit(training_p_v[FEATURE_SET_ALL])
+            training_X = pca.transform(training_p_v[FEATURE_SET_ALL])
+            testing_X = pca.transform(testing_p_v[FEATURE_SET_ALL])
+            lm.fit(training_X, training_p_v[response])
+            estimated.loc[estimated["Year"] == t + 1, predicted] = lm.predict(testing_X)
+    pca_n_table.to_pickle("../pca_n_table_stash.pkl")
 
 
 def main():
@@ -149,7 +203,9 @@ def main():
         estimate_MIDAS(fp, estimated_dict, period)
 
     estimate_LASSO(fp, estimated_dict)
-    pickle.dump(estimated_dict, open("../e_d_1.pkl", "wb"))
+
+    estimate_PCR(fp, estimated_dict)
+    pickle.dump(estimated_dict, open("../e_d.pkl", "wb"))
 
 
 if __name__ == "__main__":

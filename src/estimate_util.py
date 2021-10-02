@@ -1,9 +1,11 @@
+import sklearn
 from constants import FEATURE_SET_ALL
-from typing import Dict
+from typing import Dict, Tuple
 import numpy as np
 import pandas as pd
 from constants import Period
 from sklearn import linear_model
+from sklearn import decomposition
 
 
 def validate_panel(panel: pd.DataFrame, response: str) -> pd.DataFrame:
@@ -69,11 +71,11 @@ def lasso_grid_search(
     lm = linear_model.LinearRegression()
     log_space = np.logspace(-5, 2, 200)
     log_space = np.insert(log_space, 0, 0)
-    param_space = log_space[log_space < 0.4]
-    lmbda_R2_profile = pd.Series(index=param_space, dtype=float)
-    for param in param_space:
-        if param != 0:
-            lasso.alpha = param
+    lmbda_space = log_space[log_space < 0.4]
+    lmbda_R2_profile = pd.Series(index=lmbda_space, dtype=float)
+    for lmbda in lmbda_space:
+        if lmbda != 0:
+            lasso.alpha = lmbda
             lasso.fit(
                 training_panel[FEATURE_SET_ALL], training_panel[f"RV_res^{period.name}"]
             )
@@ -85,10 +87,31 @@ def lasso_grid_search(
                 training_panel[FEATURE_SET_ALL], training_panel[f"RV_res^{period.name}"]
             )
             predicted_array: np.ndarray = lm.predict(validation_panel[FEATURE_SET_ALL])
-        lmbda_R2_profile.loc[param] = R_squared_OOS(
+        lmbda_R2_profile.loc[lmbda] = R_squared_OOS(
             estimated["RV_res"], estimated["RV_HAR"], predicted_array
         )
     return lmbda_R2_profile.idxmax()
+
+
+def pca_grid_search(
+    training_panel: pd.DataFrame,
+    validation_panel: pd.DataFrame,
+    estimated: pd.DataFrame,
+    period: Period,
+) -> int:
+    pca = decomposition.PCA()
+    lm = linear_model.LinearRegression()
+    n_space = list(range(1, len(FEATURE_SET_ALL)))
+    n_MSE_profile = pd.Series(index=n_space, dtype=float)
+    for n in n_space:
+        pca.n_components = n
+        pca.fit(training_panel[FEATURE_SET_ALL])
+        training_X = pca.transform(training_panel[FEATURE_SET_ALL])
+        validation_X = pca.transform(validation_panel[FEATURE_SET_ALL])
+        lm.fit(training_X, training_panel[f"RV_res^{period.name}"])
+        predicted_array = lm.predict(validation_X)
+        n_MSE_profile.loc[n] = MSE(estimated["RV_res"], predicted_array)
+    return n_MSE_profile.idxmin()
 
 
 def R_squared_OOS(res, benchmark, predicted) -> float:
@@ -103,3 +126,7 @@ def R_squared_OOS(res, benchmark, predicted) -> float:
         float: Out-of-sample R squared.
     """
     return 1 - np.sum(np.square(res - predicted)) / np.sum(np.square(res - benchmark))
+
+
+def MSE(res, predicted) -> float:
+    return 1 / len(res) * np.sum(np.square(res - predicted))

@@ -17,7 +17,7 @@ class Period(Enum):
     q = 63
 
 
-FEATURE_SET: List[str] = [
+FEATURE_SET_ALL: List[str] = [
     "RV^d",
     "RV^w",
     "RV^m",

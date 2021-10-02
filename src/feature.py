@@ -11,7 +11,7 @@ import pandas as pd
 import numpy as np
 import random
 from functools import reduce
-from constants import FEATURE_SET
+from constants import FEATURE_SET_ALL
 
 
 def main():
@@ -153,7 +153,7 @@ def main():
         feature["Stock"] = key
         feature["Date"] = feature.index.values
         feature_panel = pd.concat([feature_panel, feature], ignore_index=True)
-    feature_panel.dropna(subset=FEATURE_SET, inplace=True)
+    feature_panel.dropna(subset=FEATURE_SET_ALL, inplace=True)
     feature_panel.drop(columns=["GlRV"], inplace=True)
     feature_panel.reset_index(drop=True, inplace=True)
     feature_panel.to_pickle("../feature_panel.pkl")

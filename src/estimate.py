@@ -1,10 +1,11 @@
-"""[summary]
+"""
+Usage: cd src && python3 estimate.py
 """
 from typing import Dict, List
 import numpy as np
 import pandas as pd
 from sklearn import linear_model
-from constants import Period, FEATURE_SET, T_START, T_END
+from constants import Period, FEATURE_SET_ALL, T_START, T_END
 from estimate_util import *
 import pickle
 
@@ -13,7 +14,7 @@ feature_set_dict: Dict[str, List[str]] = {
     "SHAR": ["RVP^d", "RVN^d", "RV^w", "RV^m", "RV^q"],
     "HARQ": ["RV^d", "RV^w", "RV^m", "RV^q", "HARQ^d", "HARQ^w", "HARQ^m", "HARQ^q"],
     "HExpGl": ["ExpRV^1", "ExpRV^5", "ExpRV^25", "ExpRV^125", "ExpGlRV"],
-    "All": FEATURE_SET,
+    "All": FEATURE_SET_ALL,
 }
 
 
@@ -45,29 +46,25 @@ def estimate_OLS_Based(
             )
 
 
-def estimate_HAR(fp: pd.DataFrame, estimated_dict: Dict[str, pd.DataFrame]):
-    """Estimate by HAR.
-
-    Args:
-        fp (pd.DataFrame): A panel of features and response variables.
-        estimated_dict (Dict[str, pd.DataFrame]): A dict of estimated results. MUTATED.
-    """
+def estimate_MIDAS(
+    fp: pd.DataFrame, estimated_dict: Dict[str, pd.DataFrame], period: Period
+):
     lm = linear_model.LinearRegression()
-    predicted = "RV_HAR"
-    expand_estimated_dict(estimated_dict, predicted)
-    for period in Period:
-        response = f"RV_res^{period.name}"
-        estimated = estimated_dict[period.name]
-        # t for testing set
-        for t in range(T_START, T_END):
-            training_panel = fp[fp["Year"] < t]
-            testing_panel = fp[fp["Year"] == t]
-            training_p_v = validate_panel(training_panel, response)
-            testing_p_v = validate_panel(testing_panel, response)
-            lm.fit(training_p_v[FEATURE_SET], training_p_v[response])
-            estimated.loc[estimated["Year"] == t, predicted] = lm.predict(
-                testing_p_v[FEATURE_SET]
-            )
+    predicted_var = "RV_MIDAS"
+    feature_set = [f"MIDAS^{period.name}"]
+    expand_estimated_dict(estimated_dict, predicted_var)
+
+    response = f"RV_res^{period.name}"
+    estimated = estimated_dict[period.name]
+    for t in range(T_START, T_END):
+        training_panel = fp[fp["Year"] < t]
+        testing_panel = fp[fp["Year"] == t]
+        training_p_v = validate_panel(training_panel, response)
+        testing_p_v = validate_panel(testing_panel, response)
+        lm.fit(training_p_v[feature_set], training_p_v[response])
+        estimated.loc[estimated["Year"] == t, predicted_var] = lm.predict(
+            testing_p_v[feature_set]
+        )
 
 
 def estimate_LASSO(
@@ -90,17 +87,17 @@ def estimate_LASSO(
         validation_panel = fp[fp["Year"] == t].copy()
         testing_panel = fp[fp["Year"] == t + 1].copy()
 
-        training_mean = training_panel[FEATURE_SET].mean()
-        training_std = training_panel[FEATURE_SET].std()
+        training_mean = training_panel[FEATURE_SET_ALL].mean()
+        training_std = training_panel[FEATURE_SET_ALL].std()
 
-        training_panel[FEATURE_SET] = standardize(
-            training_panel[FEATURE_SET], training_mean, training_std
+        training_panel[FEATURE_SET_ALL] = standardize(
+            training_panel[FEATURE_SET_ALL], training_mean, training_std
         )
-        validation_panel[FEATURE_SET] = standardize(
-            validation_panel[FEATURE_SET], training_mean, training_std
+        validation_panel[FEATURE_SET_ALL] = standardize(
+            validation_panel[FEATURE_SET_ALL], training_mean, training_std
         )
-        testing_panel[FEATURE_SET] = standardize(
-            testing_panel[FEATURE_SET], training_mean, training_std
+        testing_panel[FEATURE_SET_ALL] = standardize(
+            testing_panel[FEATURE_SET_ALL], training_mean, training_std
         )
 
         for period in Period:
@@ -122,16 +119,16 @@ def estimate_LASSO(
             estimated = estimated_dict[period.name]
             if lmbda != 0:
                 lasso.alpha = lmbda
-                lasso.fit(training_p_v[FEATURE_SET], training_p_v[response])
+                lasso.fit(training_p_v[FEATURE_SET_ALL], training_p_v[response])
                 estimated.loc[estimated["Year"] == t + 1, predicted] = lasso.predict(
-                    testing_p_v[FEATURE_SET]
+                    testing_p_v[FEATURE_SET_ALL]
                 )
             else:  # Collapse to OLS
-                lm.fit(training_p_v[FEATURE_SET], training_p_v[response])
+                lm.fit(training_p_v[FEATURE_SET_ALL], training_p_v[response])
                 estimated.loc[estimated["Year"] == t + 1, predicted] = lm.predict(
-                    testing_p_v[FEATURE_SET]
+                    testing_p_v[FEATURE_SET_ALL]
                 )
-    lmbda_table.to_pickle("../lmbda_table.pkl")
+    lmbda_table.to_pickle("../lmbda_table_stash.pkl")
 
 
 def main():
@@ -148,12 +145,11 @@ def main():
         print(f"Fitting {key}")
         estimate_OLS_Based(fp, estimated_dict, key)
 
-    pickle.dump(estimated_dict, open("../e_d.pkl", "wb"))
+    for period in Period:
+        estimate_MIDAS(fp, estimated_dict, period)
 
-    # estimated_dict = pickle.load(open("../e_d.pkl", "rb"))
-
-    # estimate_LASSO(fp, estimated_dict, use_stash=True)
-    # pickle.dump(estimated_dict, open("../e_d_1.pkl", "wb"))
+    estimate_LASSO(fp, estimated_dict)
+    pickle.dump(estimated_dict, open("../e_d_1.pkl", "wb"))
 
 
 if __name__ == "__main__":

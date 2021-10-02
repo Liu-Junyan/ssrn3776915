@@ -1,4 +1,4 @@
-from constants import FEATURE_SET
+from constants import FEATURE_SET_ALL
 from typing import Dict
 import numpy as np
 import pandas as pd
@@ -66,14 +66,25 @@ def lasso_grid_search(
         np.float64: Optimal lambda.
     """
     lasso = linear_model.Lasso()
+    lm = linear_model.LinearRegression()
     log_space = np.logspace(-5, 2, 200)
     log_space = np.insert(log_space, 0, 0)
-    param_space = log_space[log_space < 1]
+    param_space = log_space[log_space < 0.4]
     lmbda_R2_profile = pd.Series(index=param_space, dtype=float)
     for param in param_space:
-        lasso.alpha = param
-        lasso.fit(training_panel[FEATURE_SET], training_panel[f"RV_res^{period.name}"])
-        predicted_array: np.ndarray = lasso.predict(validation_panel[FEATURE_SET])
+        if param != 0:
+            lasso.alpha = param
+            lasso.fit(
+                training_panel[FEATURE_SET_ALL], training_panel[f"RV_res^{period.name}"]
+            )
+            predicted_array: np.ndarray = lasso.predict(
+                validation_panel[FEATURE_SET_ALL]
+            )
+        else:
+            lm.fit(
+                training_panel[FEATURE_SET_ALL], training_panel[f"RV_res^{period.name}"]
+            )
+            predicted_array: np.ndarray = lm.predict(validation_panel[FEATURE_SET_ALL])
         lmbda_R2_profile.loc[param] = R_squared_OOS(
             estimated["RV_res"], estimated["RV_HAR"], predicted_array
         )

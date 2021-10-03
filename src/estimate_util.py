@@ -81,16 +81,12 @@ def lasso_grid_search(
     for lmbda in lmbda_space:
         if lmbda != 0:
             lasso.alpha = lmbda
-            lasso.fit(
-                training_panel[FEATURE_SET_ALL], training_panel[response]
-            )
+            lasso.fit(training_panel[FEATURE_SET_ALL], training_panel[response])
             predicted_array: np.ndarray = lasso.predict(
                 validation_panel[FEATURE_SET_ALL]
             )
         else:
-            lm.fit(
-                training_panel[FEATURE_SET_ALL], training_panel[response]
-            )
+            lm.fit(training_panel[FEATURE_SET_ALL], training_panel[response])
             predicted_array: np.ndarray = lm.predict(validation_panel[FEATURE_SET_ALL])
         lmbda_R2_profile.loc[lmbda] = R_squared_OOS(
             estimated["RV_res"], estimated["RV_HAR"], predicted_array
@@ -98,7 +94,9 @@ def lasso_grid_search(
     return lmbda_R2_profile.idxmax()
 
 
-def pca_grid_search(training_panel: pd.DataFrame, validation_panel: pd.DataFrame, period: Period) -> int:
+def pca_grid_search(
+    training_panel: pd.DataFrame, validation_panel: pd.DataFrame, period: Period
+) -> int:
     pca = decomposition.PCA()
     lm = linear_model.LinearRegression()
     response = f"RV_res^{period.name}"
@@ -115,7 +113,12 @@ def pca_grid_search(training_panel: pd.DataFrame, validation_panel: pd.DataFrame
     return n_MSE_profile.idxmin()
 
 
-def rf_grid_search(training_panel: pd.DataFrame, validation_panel: pd.DataFrame, period: Period, random_state: int) -> Tuple[int, ensemble.RandomForestRegressor]:
+def rf_grid_search(
+    training_panel: pd.DataFrame,
+    validation_panel: pd.DataFrame,
+    period: Period,
+    random_state: int,
+) -> Tuple[int, ensemble.RandomForestRegressor]:
     rf = ensemble.RandomForestRegressor(
         n_estimators=100,
         max_features="log2",
@@ -138,7 +141,9 @@ def rf_grid_search(training_panel: pd.DataFrame, validation_panel: pd.DataFrame,
     return (l, models_dict[l])
 
 
-def rf_profile(training_panel: pd.DataFrame, validation_panel: pd.DataFrame, period: Period):
+def rf_profile(
+    training_panel: pd.DataFrame, validation_panel: pd.DataFrame, period: Period
+):
     rf = ensemble.RandomForestRegressor(max_depth=20, max_features="log2")
     response = f"RV_res^{period.name}"
     n_space = list(range(100, 201, 5))
@@ -166,7 +171,7 @@ def gb_grid_search(
     len_dict: Dict[int, int] = {}
     for l in l_space:
         dt.max_depth = l
-        training_panel["residual"] = training_panel[response]
+        training_panel["residuals"] = training_panel[response]
         validation_panel["predicted"] = 0
         MSE_profile = np.ndarray(shape=(20000,))
         max_len = 0
@@ -175,9 +180,9 @@ def gb_grid_search(
             training_panel_sample = training_panel.sample(frac=0.5, replace=True)
             dt.fit(
                 training_panel_sample[FEATURE_SET_ALL],
-                training_panel_sample["residual"],
+                training_panel_sample["residuals"],
             )
-            training_panel["residual"] -= (
+            training_panel["residuals"] -= (
                 dt.predict(training_panel[FEATURE_SET_ALL]) * lmbda
             )
             validation_panel["predicted"] += (
@@ -198,7 +203,7 @@ def gb_grid_search(
 
 def should_early_stop(MSE_profile: np.ndarray, i: int) -> bool:
     n = 50
-    tol = 0.01
+    tol = 0.001
     if i < n:
         return False
     else:

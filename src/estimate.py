@@ -292,25 +292,25 @@ def estimate_GBRT(fp: pd.DataFrame, estimated_dict: Dict[str, pd.DataFrame]):
 def main():
     fp: pd.DataFrame = pd.read_pickle("../feature_panel.pkl")
     fp["Year"] = (fp["Date"] / 10000).astype(int)
-    estimated_dict: Dict[str, pd.DataFrame] = {
-        period.name: fp[["Stock", "Date", "Year", f"RV_res^{period.name}"]]
-        .dropna()
-        .rename(columns={f"RV_res^{period.name}": "RV_res"})
-        for period in Period
-    }
+    # estimated_dict: Dict[str, pd.DataFrame] = {
+    #     period.name: fp[["Stock", "Date", "Year", f"RV_res^{period.name}"]]
+    #     .dropna()
+    #     .rename(columns={f"RV_res^{period.name}": "RV_res"})
+    #     for period in Period
+    # }
 
-    for key in feature_set_dict.keys():
-        print(f"Fitting {key}")
-        estimate_OLS_Based(fp, estimated_dict, key)
+    # for key in feature_set_dict.keys():
+    #     print(f"Fitting {key}")
+    #     estimate_OLS_Based(fp, estimated_dict, key)
 
-    for period in Period:
-        estimate_MIDAS(fp, estimated_dict, period)
+    # for period in Period:
+    #     estimate_MIDAS(fp, estimated_dict, period)
 
-    estimate_LASSO(fp, estimated_dict)
+    # estimate_LASSO(fp, estimated_dict)
 
-    estimate_PCR(fp, estimated_dict)
+    # estimate_PCR(fp, estimated_dict)
 
-    estimate_RF(fp, estimated_dict)
+    # estimate_RF(fp, estimated_dict)
 
     estimated_dict = pickle.load(open("../e_d.pkl", "rb"))
     estimate_GBRT(fp, estimated_dict)

@@ -6,6 +6,8 @@ import os
 def main():
     bs.login()
     for filename in os.scandir("../raw/"):
+        if filename.name[0] == ".":
+            continue
         symbol = filename.name[:-4]
         print(f"Downloading {symbol}")
         symbol_bs = symbol[:2].lower() + "." + symbol[2:]

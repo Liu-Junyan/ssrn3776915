@@ -17,6 +17,8 @@ from constants import FEATURE_SET_ALL
 def main():
     mat_dict: Dict[str, pd.DataFrame] = {}
     for f in os.scandir("../raw/"):
+        if f.name[0] == ".":
+            continue
         df: pd.DataFrame = pd.read_pickle(f)[["date", "close"]].set_axis(
             ["Date", "Price"], axis=1
         )

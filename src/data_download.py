@@ -1,6 +1,7 @@
+import os
+
 import baostock as bs
 import pandas as pd
-import os
 
 
 def main():

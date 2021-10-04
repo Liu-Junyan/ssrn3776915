@@ -9,7 +9,6 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
-from pandas.core.reshape.concat import concat
 from scipy.special import gamma
 from sklearn.linear_model import LinearRegression
 

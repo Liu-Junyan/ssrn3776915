@@ -1,7 +1,9 @@
+import pickle
+
 import torch
 import torch.nn as nn
+
 from constants import T_START, T_END
-import pickle
 from estimate_util import *
 from nn_util import train_FNN
 

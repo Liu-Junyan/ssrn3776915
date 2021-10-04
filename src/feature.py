@@ -6,12 +6,11 @@ The result is stored in feature_panel.pkl.
 """
 
 import os
-from feature_util import *
-import pandas as pd
-import numpy as np
 import random
 from functools import reduce
+
 from constants import FEATURE_SET_ALL
+from feature_util import *
 
 
 def main():

@@ -10,6 +10,7 @@ from constants import Period, FEATURE_SET_ALL, T_START, T_END
 from estimate_util import *
 import pickle
 import random
+from multiprocessing import Process, Manager
 
 feature_set_dict: Dict[str, List[str]] = {
     "HAR": ["RV^d", "RV^w", "RV^m", "RV^q"],
@@ -247,74 +248,103 @@ def estimate_GBRT(fp: pd.DataFrame, estimated_dict: Dict[str, pd.DataFrame]):
         dtype=int,
     )
     for t in range(T_START, T_END - 1):
+        print(f"Year: {t}")
         training_panel = fp[fp["Year"] < t].copy()
         validation_panel = fp[fp["Year"] == t].copy()
         testing_panel = fp[fp["Year"] == t + 1].copy()
 
-        for period in Period:
-            response = f"RV_res^{period.name}"
-            training_p_v = validate_panel(training_panel, response)
-            validation_p_v = validate_panel(validation_panel, response)
-            testing_p_v = validate_panel(testing_panel, response)
+        manager = Manager()
+        return_dict = manager.dict()
 
-            (l, n) = gb_grid_search(
-                training_p_v,
-                validation_p_v,
-                period,
-                random_state=random.randint(0, 6553400),
+        P_list = [
+            Process(
+                target=GBRT_helper,
+                args=(
+                    training_panel,
+                    validation_panel,
+                    testing_panel,
+                    period,
+                    return_dict,
+                ),
             )
-            gb_l_table.loc[t, period.name] = l
-            gb_n_table.loc[t, period.name] = n
-            dt.max_depth = l
-            print(f"GBRT: l for year {t} series {period.name} is {l}, len is {n}")
-            training_p_v["residual"] = training_p_v[response]
-            testing_p_v["predicted"] = 0
-            for i in range(1, n + 1):
-                training_panel_sample = training_p_v.sample(frac=0.5, replace=True)
-                dt.fit(
-                    training_panel_sample[FEATURE_SET_ALL],
-                    training_panel_sample["residual"],
-                )
-                training_p_v["residual"] -= (
-                    dt.predict(training_p_v[FEATURE_SET_ALL]) * lmbda
-                )
-                testing_p_v["predicted"] += (
-                    dt.predict(testing_p_v[FEATURE_SET_ALL]) * lmbda
-                )
+            for period in Period
+        ]
+
+        for P in P_list:
+            P.start()
+
+        for P in P_list:
+            P.join()
+
+        for period in return_dict.keys():
             estimated = estimated_dict[period.name]
-            estimated.loc[estimated["Year"] == t + 1, predicted] = testing_p_v[
-                "predicted"
+            gb_l_table.loc[t, period.name] = return_dict[period][0]
+            gb_n_table.loc[t, period.name] = return_dict[period][1]
+            estimated.loc[estimated["Year"] == t + 1, predicted] = return_dict[period][
+                2
             ]
+
     gb_l_table.to_pickle("../gb_l_table_stash.pkl")
     gb_n_table.to_pickle("../gb_n_table_stash.pkl")
+
+
+def GBRT_helper(
+    training_panel: pd.DataFrame,
+    validation_panel: pd.DataFrame,
+    testing_panel: pd.DataFrame,
+    period: Period,
+    return_dict,
+):
+    lmbda = 0.001
+    dt = tree.DecisionTreeRegressor(
+        max_features="log2", random_state=random.randint(0, 6553600)
+    )
+    response = f"RV_res^{period.name}"
+    training_p_v = validate_panel(training_panel, response)
+    validation_p_v = validate_panel(validation_panel, response)
+    testing_p_v = validate_panel(testing_panel, response)
+    (l, n) = gb_grid_search(
+        training_p_v, validation_p_v, period, random_state=random.randint(0, 6553400),
+    )
+    dt.max_depth = l
+    print(f"GBRT: l for series {period.name} is {l}, len is {n}")
+    training_p_v["residual"] = training_p_v[response]
+    testing_p_v["predicted"] = 0
+    for i in range(1, n + 1):
+        training_panel_sample = training_p_v.sample(frac=0.5, replace=True)
+        dt.fit(
+            training_panel_sample[FEATURE_SET_ALL], training_panel_sample["residual"],
+        )
+        training_p_v["residual"] -= dt.predict(training_p_v[FEATURE_SET_ALL]) * lmbda
+        testing_p_v["predicted"] += dt.predict(testing_p_v[FEATURE_SET_ALL]) * lmbda
+    return_dict[period] = (l, n, testing_p_v["predicted"])
 
 
 def main():
     fp: pd.DataFrame = pd.read_pickle("../feature_panel.pkl")
     fp["Year"] = (fp["Date"] / 10000).astype(int)
-    # estimated_dict: Dict[str, pd.DataFrame] = {
-    #     period.name: fp[["Stock", "Date", "Year", f"RV_res^{period.name}"]]
-    #     .dropna()
-    #     .rename(columns={f"RV_res^{period.name}": "RV_res"})
-    #     for period in Period
-    # }
+    estimated_dict: Dict[str, pd.DataFrame] = {
+        period.name: fp[["Stock", "Date", "Year", f"RV_res^{period.name}"]]
+        .dropna()
+        .rename(columns={f"RV_res^{period.name}": "RV_res"})
+        for period in Period
+    }
 
-    # for key in feature_set_dict.keys():
-    #     print(f"Fitting {key}")
-    #     estimate_OLS_Based(fp, estimated_dict, key)
+    for key in feature_set_dict.keys():
+        print(f"Fitting {key}")
+        estimate_OLS_Based(fp, estimated_dict, key)
 
-    # for period in Period:
-    #     estimate_MIDAS(fp, estimated_dict, period)
+    for period in Period:
+        estimate_MIDAS(fp, estimated_dict, period)
 
-    # estimate_LASSO(fp, estimated_dict)
+    estimate_LASSO(fp, estimated_dict)
 
-    # estimate_PCR(fp, estimated_dict)
+    estimate_PCR(fp, estimated_dict)
 
-    # estimate_RF(fp, estimated_dict)
+    estimate_RF(fp, estimated_dict)
 
-    estimated_dict = pickle.load(open("../e_d.pkl", "rb"))
     estimate_GBRT(fp, estimated_dict)
-    pickle.dump(estimated_dict, open("../e_d_1.pkl", "wb"))
+    pickle.dump(estimated_dict, open("../e_d.pkl", "wb"))
 
 
 if __name__ == "__main__":

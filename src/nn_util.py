@@ -28,6 +28,15 @@ class FeedForwardNeuralNetwork(nn.Module):
 
 
 def train_FNN(training_panel: pd.DataFrame, period: Period) -> FeedForwardNeuralNetwork:
+    """"Train a feed-forward neural network
+
+    Args:
+        training_panel (pd.DataFrame): Validated training panel.
+        period (Period): Forecast horizon.
+
+    Returns:
+        FeedForwardNeuralNetwork: A trained network.
+    """
     model = FeedForwardNeuralNetwork().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     response = f"RV_res^{period.name}"

@@ -7,19 +7,12 @@ from constants import T_START, T_END
 from estimate_util import *
 from nn_util import train_FNN
 
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
-def main():
-    device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    fp: pd.DataFrame = pickle.load(open("../stash/feature_panel.pkl", "rb"))
-    fp["Year"] = (fp["Date"] / 10000).astype(int)
-    estimated_dict: Dict[str, pd.DataFrame] = pickle.load(
-        open("../stash/e_d.pkl", "rb")
-    )
+def estimate_FNN(fp, estimated_dict):
     expand_estimated_dict(estimated_dict, "RV_FNN")
-
     criterion = nn.MSELoss()
-
     for t in range(T_START, T_END):
         training_panel = fp[fp["Year"] < t].copy()
         testing_panel = fp[fp["Year"] == t].copy()
@@ -54,6 +47,15 @@ def main():
                 estimated.loc[estimated["Year"] == t, "RV_FNN"] = outputs.view(
                     -1
                 ).numpy()
+
+
+def main():
+    fp: pd.DataFrame = pickle.load(open("../stash/feature_panel.pkl", "rb"))
+    fp["Year"] = (fp["Date"] / 10000).astype(int)
+    estimated_dict: Dict[str, pd.DataFrame] = pickle.load(
+        open("../stash/e_d.pkl", "rb")
+    )
+    estimate_FNN(fp, estimated_dict)
 
     pickle.dump(estimated_dict, open("../stash/e_d_1.pkl", "wb"))
 

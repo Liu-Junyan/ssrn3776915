@@ -191,7 +191,7 @@ def gb_grid_search(
             MSE_profile[i - 1] = MSE(
                 validation_panel[response], validation_panel["predicted"]
             )
-            if should_early_stop(MSE_profile, i - 1):
+            if should_early_stop(MSE_profile, i - 1, 50, 0.001):
                 break
         l_MSE_profile[l] = MSE(
             validation_panel[response], validation_panel["predicted"]
@@ -201,14 +201,18 @@ def gb_grid_search(
     return (l, len_dict[l])
 
 
-def should_early_stop(MSE_profile: np.ndarray, i: int) -> bool:
-    n = 50
-    tol = 0.001
+def should_early_stop(MSE_profile: np.ndarray, i: int, n, tol) -> bool:
     if i < n:
         return False
     else:
-        sub = MSE_profile[i - 50 : i]
-        return np.max(sub - MSE_profile[i]) < tol
+        sub = MSE_profile[i - n : i]
+        max_decrease = np.max(sub - MSE_profile[i])
+        min_decrease = np.min(sub - MSE_profile[i])
+        # print(sub)
+        # print(MSE_profile[i])
+        # print(sub - MSE_profile[i])
+        # print(f"max: {max_decrease:.4f},\t min: {min_decrease:.4f}")
+        return (max_decrease < tol) and (min_decrease >= 0)
 
 
 def R_squared_OOS(res, benchmark, predicted) -> float:

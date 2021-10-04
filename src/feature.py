@@ -16,7 +16,7 @@ from constants import FEATURE_SET_ALL
 
 def main():
     mat_dict: Dict[str, pd.DataFrame] = {}
-    for f in os.scandir("../pkl/"):
+    for f in os.scandir("../raw/"):
         df: pd.DataFrame = pd.read_pickle(f)[["date", "close"]].set_axis(
             ["Date", "Price"], axis=1
         )
@@ -156,7 +156,7 @@ def main():
     feature_panel.dropna(subset=FEATURE_SET_ALL, inplace=True)
     feature_panel.drop(columns=["GlRV"], inplace=True)
     feature_panel.reset_index(drop=True, inplace=True)
-    feature_panel.to_pickle("../feature_panel.pkl")
+    feature_panel.to_pickle("../stash/feature_panel.pkl")
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ import os
 
 def main():
     bs.login()
-    for filename in os.scandir("../pkl/"):
+    for filename in os.scandir("../raw/"):
         symbol = filename.name[:-4]
         print(f"Downloading {symbol}")
         symbol_bs = symbol[:2].lower() + "." + symbol[2:]

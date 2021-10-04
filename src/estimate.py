@@ -84,7 +84,7 @@ def estimate_LASSO(
     )
     if use_stash:
         lmbda_table_stash: pd.DataFrame = pickle.load(
-            open("../lmbda_table_stash.pkl", "rb")
+            open("../stash/lmbda_table_stash.pkl", "rb")
         )
     # Under training-validation-testing scheme, t = 2008...2015. (testing: 2007...t-1; validation: t; testing: t+1)
     # t for validation set
@@ -134,7 +134,7 @@ def estimate_LASSO(
                 estimated.loc[estimated["Year"] == t + 1, predicted] = lm.predict(
                     testing_p_v[FEATURE_SET_ALL]
                 )
-    lmbda_table.to_pickle("../lmbda_table_stash.pkl")
+    lmbda_table.to_pickle("../stash/lmbda_table_stash.pkl")
 
 
 def estimate_PCR(
@@ -151,7 +151,7 @@ def estimate_PCR(
     )
     if use_stash:
         pca_n_table_stash: pd.DataFrame = pickle.load(
-            open("../pca_n_table_stash.pkl", "rb")
+            open("../stash/pca_n_table_stash.pkl", "rb")
         )
     for t in range(T_START, T_END - 1):
         training_panel = fp[fp["Year"] < t].copy()
@@ -191,7 +191,7 @@ def estimate_PCR(
             testing_X = pca.transform(testing_p_v[FEATURE_SET_ALL])
             lm.fit(training_X, training_p_v[response])
             estimated.loc[estimated["Year"] == t + 1, predicted] = lm.predict(testing_X)
-    pca_n_table.to_pickle("../pca_n_table_stash.pkl")
+    pca_n_table.to_pickle("../stash/pca_n_table_stash.pkl")
 
 
 def estimate_RF(fp: pd.DataFrame, estimated_dict: Dict[str, pd.DataFrame]):
@@ -226,15 +226,11 @@ def estimate_RF(fp: pd.DataFrame, estimated_dict: Dict[str, pd.DataFrame]):
             estimated.loc[estimated["Year"] == t + 1, predicted] = rf.predict(
                 testing_p_v[FEATURE_SET_ALL]
             )
-    rf_l_table.to_pickle("../rf_l_table_stash.pkl")
+    rf_l_table.to_pickle("../stash/rf_l_table_stash.pkl")
 
 
 def estimate_GBRT(fp: pd.DataFrame, estimated_dict: Dict[str, pd.DataFrame]):
     random.seed(20211003)
-    dt = tree.DecisionTreeRegressor(
-        max_features="log2", random_state=random.randint(0, 6553600)
-    )
-    lmbda = 0.001
     predicted = "RV_GB"
     expand_estimated_dict(estimated_dict, predicted)
     gb_l_table = pd.DataFrame(
@@ -284,8 +280,8 @@ def estimate_GBRT(fp: pd.DataFrame, estimated_dict: Dict[str, pd.DataFrame]):
                 2
             ]
 
-    gb_l_table.to_pickle("../gb_l_table_stash.pkl")
-    gb_n_table.to_pickle("../gb_n_table_stash.pkl")
+    gb_l_table.to_pickle("../stash/gb_l_table_stash.pkl")
+    gb_n_table.to_pickle("../stash/gb_n_table_stash.pkl")
 
 
 def GBRT_helper(
@@ -310,7 +306,7 @@ def GBRT_helper(
     print(f"GBRT: l for series {period.name} is {l}, len is {n}")
     training_p_v["residual"] = training_p_v[response]
     testing_p_v["predicted"] = 0
-    for i in range(1, n + 1):
+    for _ in range(1, n + 1):
         training_panel_sample = training_p_v.sample(frac=0.5, replace=True)
         dt.fit(
             training_panel_sample[FEATURE_SET_ALL], training_panel_sample["residual"],
@@ -321,7 +317,7 @@ def GBRT_helper(
 
 
 def main():
-    fp: pd.DataFrame = pd.read_pickle("../feature_panel.pkl")
+    fp: pd.DataFrame = pd.read_pickle("../stash/feature_panel.pkl")
     fp["Year"] = (fp["Date"] / 10000).astype(int)
     estimated_dict: Dict[str, pd.DataFrame] = {
         period.name: fp[["Stock", "Date", "Year", f"RV_res^{period.name}"]]
@@ -344,7 +340,7 @@ def main():
     estimate_RF(fp, estimated_dict)
 
     estimate_GBRT(fp, estimated_dict)
-    pickle.dump(estimated_dict, open("../e_d.pkl", "wb"))
+    pickle.dump(estimated_dict, open("../stash/e_d.pkl", "wb"))
 
 
 if __name__ == "__main__":

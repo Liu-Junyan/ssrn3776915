@@ -1,5 +1,6 @@
 archive/
-pkl/
+pkl/*
+stash/*
 __pycache__/
 .idea/
 *.zip

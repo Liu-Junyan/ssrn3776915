@@ -10,7 +10,7 @@ from nn_util import train_FNN
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 
-def estimate_FNN(fp, estimated_dict):
+def estimate_FNN(fp: pd.DataFrame, estimated_dict: Dict[str, pd.DataFrame]):
     expand_estimated_dict(estimated_dict, "RV_FNN")
     criterion = nn.MSELoss()
     for t in range(T_START, T_END):
@@ -41,7 +41,7 @@ def estimate_FNN(fp, estimated_dict):
                     .view(-1, 1)
                     .to(device)
                 )
-                outputs = model(inputs)
+                outputs: torch.Tensor = model(inputs)
                 loss = criterion(outputs, targets)
                 print(f"Testing loss: {loss}")
                 estimated.loc[estimated["Year"] == t, "RV_FNN"] = outputs.view(

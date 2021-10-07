@@ -1,3 +1,5 @@
 archive/
 __pycache__/
 .idea/
+csv/
+tex/

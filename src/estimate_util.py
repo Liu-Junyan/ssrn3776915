@@ -1,5 +1,5 @@
 import copy
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -162,17 +162,18 @@ def gb_grid_search(
     validation_panel: pd.DataFrame,
     period: Period,
     random_state: int,
-) -> Tuple[int, int]:
+) -> Tuple[int, int, List[tree.DecisionTreeRegressor]]:
     dt = tree.DecisionTreeRegressor(max_features="log2", random_state=random_state)
     response = f"RV_res^{period.name}"
     lmbda = 0.001
     l_space = list(range(1, 6))
     l_MSE_profile = pd.Series(index=l_space, dtype=float)
+    l_model_list: List[List[tree.DecisionTreeRegressor]] = [[] for _ in l_space]
     len_dict: Dict[int, int] = {}
     for l in l_space:
         dt.max_depth = l
         training_panel["residuals"] = training_panel[response]
-        validation_panel["predicted"] = 0
+        predicted = np.zeros(validation_panel.shape[0])
         MSE_profile = np.ndarray(shape=(20000,))
         max_len = 0
         for i in range(1, 20001):
@@ -185,20 +186,16 @@ def gb_grid_search(
             training_panel["residuals"] -= (
                 dt.predict(training_panel[FEATURE_SET_ALL]) * lmbda
             )
-            validation_panel["predicted"] += (
-                dt.predict(validation_panel[FEATURE_SET_ALL]) * lmbda
-            )
-            MSE_profile[i - 1] = MSE(
-                validation_panel[response], validation_panel["predicted"]
-            )
-            if should_early_stop(MSE_profile, i - 1, 50, 0.001):
+            predicted += dt.predict(validation_panel[FEATURE_SET_ALL]) * lmbda
+            l_model_list[l - 1].append(copy.deepcopy(dt))
+            MSE_profile[i - 1] = MSE(validation_panel[response], predicted)
+            if should_early_stop(MSE_profile, i - 1, 30, 0.0001):
                 break
-        l_MSE_profile[l] = MSE(
-            validation_panel[response], validation_panel["predicted"]
-        )
+        l_MSE_profile[l] = MSE(validation_panel[response], predicted)
         len_dict[l] = max_len
+
     l = l_MSE_profile.idxmin()
-    return (l, len_dict[l])
+    return (l, len_dict[l], l_model_list[l - 1])
 
 
 def should_early_stop(MSE_profile: np.ndarray, i: int, n, tol) -> bool:
@@ -208,10 +205,6 @@ def should_early_stop(MSE_profile: np.ndarray, i: int, n, tol) -> bool:
         sub = MSE_profile[i - n : i]
         max_decrease = np.max(sub - MSE_profile[i])
         min_decrease = np.min(sub - MSE_profile[i])
-        # print(sub)
-        # print(MSE_profile[i])
-        # print(sub - MSE_profile[i])
-        # print(f"max: {max_decrease:.4f},\t min: {min_decrease:.4f}")
         return (max_decrease < tol) and (min_decrease >= 0)
 
 

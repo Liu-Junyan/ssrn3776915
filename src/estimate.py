@@ -81,6 +81,11 @@ def estimate_LASSO(
         columns=[period.name for period in Period],
         dtype=float,
     )
+    lasso_n_table = pd.DataFrame(
+        index=range(T_START, T_END - 1),
+        columns=[period.name for period in Period],
+        dtype=int,
+    )
     if use_stash:
         lmbda_table_stash: pd.DataFrame = pickle.load(
             open("../stash/lmbda_table_stash.pkl", "rb")
@@ -128,11 +133,16 @@ def estimate_LASSO(
                 estimated.loc[estimated["Year"] == t + 1, predicted] = lasso.predict(
                     testing_p_v[FEATURE_SET_ALL]
                 )
+                model = lasso
             else:  # Collapse to OLS
                 lm.fit(training_p_v[FEATURE_SET_ALL], training_p_v[response])
                 estimated.loc[estimated["Year"] == t + 1, predicted] = lm.predict(
                     testing_p_v[FEATURE_SET_ALL]
                 )
+                model = lm
+            coef_list = model.coef_
+            lasso_n_table.loc[t, period.name] = len(coef_list[coef_list != 0])
+    lasso_n_table.to_csv("../csv/lasso_n.csv")
     lmbda_table.to_pickle("../stash/lmbda_table_stash.pkl")
 
 
@@ -271,13 +281,11 @@ def estimate_GBRT(fp: pd.DataFrame, estimated_dict: Dict[str, pd.DataFrame]):
         for P in P_list:
             P.join()
 
-        for period in return_dict.keys():
+        for period, value in return_dict.items():
             estimated = estimated_dict[period.name]
-            gb_l_table.loc[t, period.name] = return_dict[period][0]
-            gb_n_table.loc[t, period.name] = return_dict[period][1]
-            estimated.loc[estimated["Year"] == t + 1, predicted] = return_dict[period][
-                2
-            ]
+            gb_l_table.loc[t, period.name] = value[0]
+            gb_n_table.loc[t, period.name] = value[1]
+            estimated.loc[estimated["Year"] == t + 1, predicted] = value[2]
 
     gb_l_table.to_pickle("../stash/gb_l_table_stash.pkl")
     gb_n_table.to_pickle("../stash/gb_n_table_stash.pkl")
@@ -291,28 +299,18 @@ def GBRT_helper(
     return_dict,
 ):
     lmbda = 0.001
-    dt = tree.DecisionTreeRegressor(
-        max_features="log2", random_state=random.randint(0, 6553600)
-    )
     response = f"RV_res^{period.name}"
     training_p_v = validate_panel(training_panel, response)
     validation_p_v = validate_panel(validation_panel, response)
     testing_p_v = validate_panel(testing_panel, response)
-    (l, n) = gb_grid_search(
+    (l, n, dt_list) = gb_grid_search(
         training_p_v, validation_p_v, period, random_state=random.randint(0, 6553400),
     )
-    dt.max_depth = l
     print(f"GBRT: l for series {period.name} is {l}, len is {n}")
-    training_p_v["residual"] = training_p_v[response]
-    testing_p_v["predicted"] = 0
-    for _ in range(1, n + 1):
-        training_panel_sample = training_p_v.sample(frac=0.5, replace=True)
-        dt.fit(
-            training_panel_sample[FEATURE_SET_ALL], training_panel_sample["residual"],
-        )
-        training_p_v["residual"] -= dt.predict(training_p_v[FEATURE_SET_ALL]) * lmbda
-        testing_p_v["predicted"] += dt.predict(testing_p_v[FEATURE_SET_ALL]) * lmbda
-    return_dict[period] = (l, n, testing_p_v["predicted"])
+    predicted_array = np.zeros(testing_p_v.shape[0])
+    for dt in dt_list:
+        predicted_array += dt.predict(testing_p_v[FEATURE_SET_ALL]) * lmbda
+    return_dict[period] = (l, n, predicted_array)
 
 
 def main():

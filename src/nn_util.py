@@ -40,7 +40,7 @@ def train_FNN(training_panel: pd.DataFrame, period: Period) -> FeedForwardNeural
     model = FeedForwardNeuralNetwork().to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
     response = f"RV_res^{period.name}"
-    epoch = 2000
+    epoch = 10000
     epoch_MSE_profile = np.ndarray(shape=(epoch,))
     inputs = torch.tensor(
         training_panel[FEATURE_SET_ALL].values, dtype=torch.float32
@@ -61,7 +61,7 @@ def train_FNN(training_panel: pd.DataFrame, period: Period) -> FeedForwardNeural
         optimizer.step()
         epoch_MSE_profile[i - 1] = loss.item()
         if i % 10 == 0:
-            print(f"epoch {i} / {epoch},\t loss = {loss.item():.4f}")
-        if should_early_stop(epoch_MSE_profile, i - 1, 30, 0.0001):
+            print(f"epoch {i} / {epoch},\t loss = {loss.item():.5f}")
+        if should_early_stop(epoch_MSE_profile, i - 1, 50, 0.00001):
             break
     return model

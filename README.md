@@ -2,11 +2,13 @@ A project trying to replicate [SSRN3776915](https://papers.ssrn.com/sol3/papers.
 
 ### Directory Structure
 
-./src/: source code
-
-./raw/: raw intraday price date. Can be downloaded from 链接: https://pan.baidu.com/s/1M1Fksa8Skj5dVI6MpholMA 提取码: 2ybm。
-
-./stash/: intermediate results stash
+```
+.
+├── README.md
+├── raw # raw intraday price date. Can be downloaded from 链接: https://pan.baidu.com/s/1M1Fksa8Skj5dVI6MpholMA 提取码: 2ybm。
+├── src # source code
+└── stash # intermediate results stash
+```
 
 ### Usage
 

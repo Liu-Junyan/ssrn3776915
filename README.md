@@ -12,7 +12,7 @@ A project trying to replicate [SSRN3776915](https://papers.ssrn.com/sol3/papers.
 
 ### Usage
 
-It's recommended to stick to [Anaconda](https://www.anaconda.com/) to resolve dependencies.
+It's recommended to use [Anaconda](https://www.anaconda.com/) to resolve dependencies.
 
 ```bash
 # install pytorch
